@@ -1,32 +1,56 @@
-{% set version = "5.5.1" %}
+{% set version = "5.5.2" %}
+{% set build = 0 %}
+
+# mpi must be defined for conda-smithy lint
+# {% set mpi = mpi or 'nompi' %}
+
+{% set MPI = 1 %}
+{% if mpi == 'nompi' %}
+{% set MPI = 0 %}
+# prefer nompi builds via a build number offset
+{% set build = build + 100 %}
+{% endif %}
 
 package:
   name: ascot
   version: {{ version }}
 
 source:
-  url: https://github.com/ascot4fusion/ascot5/archive/ascot{{ version }}.tar.gz
-  sha256: b7139cb8370b12e738e221460f926dba6bdaae2a32e7680dfd8e58a16d82efe6
+  url: https://github.com/ascot4fusion/ascot5/archive/{{ version }}.tar.gz
+  sha256: 08dc7391ee79113a4a977eb008aace047c52207fbb94cdaf3b63a9d4a16660e5
 
 build:
   skip: True # [not linux]
-  number: 0
+  number: {{ build }}
+  {% if mpi != 'nompi' %}
+  {% set mpi_prefix = "mpi_" + mpi %}
+  {% else %}
+  {% set mpi_prefix = "nompi" %}
+  {% endif %}
+  string: {{ mpi_prefix }}_{{ PKG_HASH }}_{{ build }}
+  script_env:
+    - MPI={{ MPI }}
 
 requirements:
   build:
     - {{ compiler('c') }}
     - make
     - libgomp # [linux]
+    - {{ mpi }} # [mpi != 'nompi']
 
   host:
     - python>=3.10
-    - hdf5
+#    - hdf5
+    - hdf5 * {{ mpi_prefix }}_*
     - zlib
     - setuptools
+    - setuptools-git-versioning
     - pip
     - {{ mpi }} # [mpi != 'nompi']
 
   run:
+    - hdf5 * {{ mpi_prefix }}_*
+    - {{ mpi }} # [mpi != 'nompi']
     - numpy
     - scipy
     - h5py
@@ -36,6 +60,9 @@ requirements:
     - pyvista
     - freeqdsk
 
+  test:
+    - {{ mpi }} # [mpi != 'nompi']
+
 test:
-  commands:
-    - echo "Not implemented yet"
+  script_env:
+    - MPI={{ MPI }}
